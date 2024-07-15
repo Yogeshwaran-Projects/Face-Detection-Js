@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"name": "Face-Detection-JavaScript-master",
+			"path": "."
+		},
+		{
+			"name": "models",
+			"path": "../../.Trash/models"
+		}
+	],
+	"settings": {
+		"liveServer.settings.port": 5501,
+		"liveServer.settings.multiRootWorkspaceName": "Face-Detection-JavaScript-master"
+	}
+}

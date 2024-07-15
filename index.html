@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Face Detection Test</title>
+  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  <script defer>
+    async function loadModels() {
+      try {
+        console.log('Loading models...');
+        await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
+        console.log('tinyFaceDetector model loaded');
+        await faceapi.nets.faceLandmark68Net.loadFromUri('/models');
+        console.log('faceLandmark68Net model loaded');
+        await faceapi.nets.faceRecognitionNet.loadFromUri('/models');
+        console.log('faceRecognitionNet model loaded');
+        await faceapi.nets.faceExpressionNet.loadFromUri('/models');
+        console.log('faceExpressionNet model loaded');
+        console.log('All models loaded successfully');
+      } catch (err) {
+        console.error('Model loading error:', err);
+        document.getElementById('loadingMessage').innerText = 'Error loading models. Please refresh the page.';
+      } finally {
+        document.getElementById('loadingMessage').style.display = 'none';
+      }
+    }
+
+    async function startVideo() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
+        const video = document.getElementById('video');
+        video.srcObject = stream;
+        console.log('Video stream started');
+      } catch (err) {
+        console.error('Error accessing video stream:', err);
+        document.getElementById('loadingMessage').innerText = 'Error accessing video stream. Please check your camera settings.';
+      }
+    }
+
+    function detectSuspiciousBehavior(detections) {
+      if (detections.length === 0) {
+        console.warn('No face detected. Possible cheating detected.');
+        alert('No face detected. You have been logged out due to suspicious activity.');
+        window.location.href = '/logout';
+        return;
+      }
+
+      if (detections.length > 1) {
+        console.warn('Multiple faces detected. Possible cheating detected.');
+        alert('Multiple faces detected. You have been logged out due to suspicious activity.');
+        window.location.href = '/logout';
+        return;
+      }
+
+      const detection = detections[0];
+      const { landmarks } = detection;
+      const nose = landmarks.getNose();
+      const leftEye = landmarks.getLeftEye();
+      const rightEye = landmarks.getRightEye();
+      const noseX = nose[3].x;
+      const leftEyeX = leftEye[0].x;
+      const rightEyeX = rightEye[3].x;
+      const eyeDistance = Math.abs(rightEyeX - leftEyeX);
+      const noseToEyeDistance = Math.abs(noseX - (leftEyeX + rightEyeX) / 2);
+      const threshold = eyeDistance * 0.2;
+
+      if (noseToEyeDistance > threshold) {
+        console.warn('Head movement detected. Possible cheating detected.');
+        alert('Head movement detected. You have been logged out due to suspicious activity.');
+        window.location.href = '/logout';
+      }
+    }
+
+    function checkInitialFaceDetection(detections) {
+      const feedback = document.getElementById('feedback');
+      if (detections.length === 1) {
+        const detection = detections[0];
+        const { landmarks, alignedRect } = detection;
+        const boxWidth = alignedRect.box.width;
+        const boxHeight = alignedRect.box.height;
+        const nose = landmarks.getNose();
+        const leftEye = landmarks.getLeftEye();
+        const rightEye = landmarks.getRightEye();
+        const noseX = nose[3].x;
+        const leftEyeX = leftEye[0].x;
+        const rightEyeX = rightEye[3].x;
+        const eyeDistance = Math.abs(rightEyeX - leftEyeX);
+        const noseToEyeDistance = Math.abs(noseX - (leftEyeX + rightEyeX) / 2);
+        const threshold = eyeDistance * 0.1; // Stricter threshold for initial detection
+        const verticalThreshold = eyeDistance * 0.5; // Vertical head movement threshold
+
+        if (boxWidth > 300 || boxHeight > 300) {
+          feedback.innerText = 'Move back a little';
+          feedback.style.color = 'red';
+          document.getElementById('proceedButton').style.display = 'none';
+        } else if (noseToEyeDistance <= threshold && Math.abs(leftEye[0].y - rightEye[0].y) <= verticalThreshold) {
+          feedback.innerText = 'Face positioned correctly!';
+          feedback.style.color = 'green';
+          document.getElementById('proceedButton').style.display = 'block';
+        } else {
+          feedback.innerText = 'Adjust your face position';
+          feedback.style.color = 'red';
+          document.getElementById('proceedButton').style.display = 'none';
+        }
+      } else {
+        feedback.innerText = detections.length === 0 ? 'No face detected' : 'Multiple faces detected';
+        feedback.style.color = 'red';
+        document.getElementById('proceedButton').style.display = 'none';
+      }
+    }
+
+    function proceedToExam() {
+      const video = document.getElementById('video');
+      video.style.width = '200px';
+      video.style.height = '150px';
+      video.style.top = '10px';
+      video.style.right = '10px';
+      video.style.position = 'fixed';
+      document.getElementById('proceedButton').style.display = 'none';
+      document.getElementById('faceOverlay').style.display = 'none';
+
+      setInterval(async () => {
+        try {
+          const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceExpressions();
+          detectSuspiciousBehavior(detections);
+        } catch (err) {
+          console.error('Error detecting faces:', err);
+        }
+      }, 300);
+    }
+
+    window.addEventListener('load', async () => {
+      document.getElementById('loadingMessage').style.display = 'block';
+      await loadModels();
+      await startVideo();
+
+      const video = document.getElementById('video');
+      video.addEventListener('play', () => {
+        console.log('Video is playing');
+        const canvas = faceapi.createCanvasFromMedia(video);
+        document.body.append(canvas);
+        const displaySize = { width: video.width, height: video.height };
+        faceapi.matchDimensions(canvas, displaySize);
+
+        const initialDetectionInterval = setInterval(async () => {
+          try {
+            const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceExpressions();
+            checkInitialFaceDetection(detections);
+          } catch (err) {
+            console.error('Error detecting faces:', err);
+          }
+        }, 300);
+      });
+    });
+  </script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-color: #000000;
+      color: white;
+    }
+    video, canvas {
+      position: absolute;
+    }
+    #proceedButton {
+      display: none;
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 20px;
+      font-size: 16px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+    #loadingMessage {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 18px;
+      background-color: #333;
+      color: white;
+      padding: 20px;
+      border-radius: 10px;
+    }
+    #instructions {
+      position: fixed;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      font-size: 16px;
+      padding: 10px;
+      background-color: #555;
+      border-radius: 5px;
+    }
+    #feedback {
+      position: fixed;
+      bottom: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: red;
+      font-size: 18px;
+    }
+    #faceOverlay {
+      display: block;
+      position: absolute;
+      width: 200px;
+      height: 250px;
+      border: 2px solid #4CAF50;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 1;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="instructions">Please position your face within the frame</div>
+  <div id="feedback"></div>
+  <video id="video" width="720" height="560" autoplay muted></video>
+  <div id="faceOverlay"></div>
+  <button id="proceedButton" onclick="proceedToExam()">Proceed to Exam</button>
+  <div id="loadingMessage">Loading models, please wait...</div>
+</body>
+</html>
