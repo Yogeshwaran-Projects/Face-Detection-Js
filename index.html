@@ -7,6 +7,10 @@
   <title>Face Detection Test</title>
   <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
   <script defer>
+    let initialDetectionInterval;
+    let suspiciousBehaviorInterval;
+    let logoutInProgress = false;
+
     async function loadModels() {
       try {
         console.log('Loading models...');
@@ -39,23 +43,42 @@
       }
     }
 
+    function logout(message) {
+      if (!logoutInProgress) {
+        logoutInProgress = true;
+        console.warn(message);
+        alert(message);
+        window.location.href = './logout';
+      }
+    }
+
     function detectSuspiciousBehavior(detections) {
       if (detections.length === 0) {
-        console.warn('No face detected. Possible cheating detected.');
-        alert('No face detected. You have been logged out due to suspicious activity.');
-        window.location.href = '/logout';
+        logout('No face detected. You have been logged out due to suspicious activity.');
         return;
       }
 
       if (detections.length > 1) {
-        console.warn('Multiple faces detected. Possible cheating detected.');
-        alert('Multiple faces detected. You have been logged out due to suspicious activity.');
-        window.location.href = '/logout';
+        logout('Multiple faces detected. You have been logged out due to suspicious activity.');
         return;
       }
 
       const detection = detections[0];
-      const { landmarks } = detection;
+      const { landmarks, alignedRect } = detection;
+      const box = alignedRect.box;
+
+      // Check if the face is within the frame
+      const framePadding = 20;
+      if (
+        box.x < framePadding ||
+        box.y < framePadding ||
+        box.x + box.width > video.width - framePadding ||
+        box.y + box.height > video.height - framePadding
+      ) {
+        logout('Face out of frame. You have been logged out due to suspicious activity.');
+        return;
+      }
+
       const nose = landmarks.getNose();
       const leftEye = landmarks.getLeftEye();
       const rightEye = landmarks.getRightEye();
@@ -65,11 +88,15 @@
       const eyeDistance = Math.abs(rightEyeX - leftEyeX);
       const noseToEyeDistance = Math.abs(noseX - (leftEyeX + rightEyeX) / 2);
       const threshold = eyeDistance * 0.2;
+      const verticalThreshold = eyeDistance * 0.5; // Vertical head movement threshold
 
       if (noseToEyeDistance > threshold) {
-        console.warn('Head movement detected. Possible cheating detected.');
-        alert('Head movement detected. You have been logged out due to suspicious activity.');
-        window.location.href = '/logout';
+        logout('Horizontal head movement detected. You have been logged out due to suspicious activity.');
+        return;
+      }
+
+      if (Math.abs(leftEye[0].y - rightEye[0].y) > verticalThreshold) {
+        logout('Vertical head movement detected. You have been logged out due to suspicious activity.');
       }
     }
 
@@ -121,7 +148,9 @@
       document.getElementById('proceedButton').style.display = 'none';
       document.getElementById('faceOverlay').style.display = 'none';
 
-      setInterval(async () => {
+      clearInterval(initialDetectionInterval);
+
+      suspiciousBehaviorInterval = setInterval(async () => {
         try {
           const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceExpressions();
           detectSuspiciousBehavior(detections);
@@ -144,7 +173,7 @@
         const displaySize = { width: video.width, height: video.height };
         faceapi.matchDimensions(canvas, displaySize);
 
-        const initialDetectionInterval = setInterval(async () => {
+        initialDetectionInterval = setInterval(async () => {
           try {
             const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceExpressions();
             checkInitialFaceDetection(detections);
