@@ -42,3 +42,4 @@ This project runs entirely on the client side, leveraging modern web technologie
 
 Contributions are welcome! Feel free to open issues and pull requests to suggest improvements or report bugs.
 
+## Give a Star
