@@ -48,7 +48,7 @@
         logoutInProgress = true;
         console.warn(message);
         alert(message);
-        window.location.href = './logout';
+        window.location.href = 'logout.html';
       }
     }
 
@@ -64,20 +64,7 @@
       }
 
       const detection = detections[0];
-      const { landmarks, alignedRect } = detection;
-      const box = alignedRect.box;
-
-      // Check if the face is within the frame
-      const framePadding = 20;
-      if (
-        box.x < framePadding ||
-        box.y < framePadding ||
-        box.x + box.width > video.width - framePadding ||
-        box.y + box.height > video.height - framePadding
-      ) {
-        logout('Face out of frame. You have been logged out due to suspicious activity.');
-        return;
-      }
+      const { landmarks } = detection;
 
       const nose = landmarks.getNose();
       const leftEye = landmarks.getLeftEye();
@@ -88,7 +75,7 @@
       const eyeDistance = Math.abs(rightEyeX - leftEyeX);
       const noseToEyeDistance = Math.abs(noseX - (leftEyeX + rightEyeX) / 2);
       const threshold = eyeDistance * 0.2;
-      const verticalThreshold = eyeDistance * 0.5; // Vertical head movement threshold
+      const verticalThreshold = eyeDistance * 0.5; 
 
       if (noseToEyeDistance > threshold) {
         logout('Horizontal head movement detected. You have been logged out due to suspicious activity.');
@@ -115,8 +102,8 @@
         const rightEyeX = rightEye[3].x;
         const eyeDistance = Math.abs(rightEyeX - leftEyeX);
         const noseToEyeDistance = Math.abs(noseX - (leftEyeX + rightEyeX) / 2);
-        const threshold = eyeDistance * 0.1; // Stricter threshold for initial detection
-        const verticalThreshold = eyeDistance * 0.5; // Vertical head movement threshold
+        const threshold = eyeDistance * 0.1; 
+        const verticalThreshold = eyeDistance * 0.5; 
 
         if (boxWidth > 300 || boxHeight > 300) {
           feedback.innerText = 'Move back a little';
@@ -196,7 +183,12 @@
       background-color: #000000;
       color: white;
     }
-    video, canvas {
+    video {
+      width: 720px;
+      height: 560px;
+      position: relative;
+    }
+    canvas {
       position: absolute;
     }
     #proceedButton {
@@ -261,7 +253,7 @@
 <body>
   <div id="instructions">Please position your face within the frame</div>
   <div id="feedback"></div>
-  <video id="video" width="720" height="560" autoplay muted></video>
+  <video id="video" autoplay muted></video>
   <div id="faceOverlay"></div>
   <button id="proceedButton" onclick="proceedToExam()">Proceed to Exam</button>
   <div id="loadingMessage">Loading models, please wait...</div>
