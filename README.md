@@ -2,7 +2,7 @@
 
 # Face Detection JavaScript Project
 
-This project demonstrates real-time face detection using JavaScript and the face-api.js library. It runs entirely on the client side, allowing users to position their face within a frame and performing various checks to detect suspicious behavior during an exam scenario.
+This project demonstrates real-time face detection using JavaScript and the face-api.js library. It runs entirely on the client side, allowing users to position their face within a frame and performing various checks to detect suspicious behavior during an exam scenario.To Prevent the Cheating 
 
 ## Features
 
